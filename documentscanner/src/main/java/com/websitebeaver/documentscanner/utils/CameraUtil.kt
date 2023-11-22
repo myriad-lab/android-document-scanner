@@ -10,6 +10,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.FileProvider
 import java.io.File
 import java.io.IOException
+import kotlin.math.abs
 
 /**
  * This class contains a helper function for opening the camera.
@@ -72,7 +73,37 @@ class CameraUtil(
         )
         takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI)
 
+        val camera = android.hardware.Camera.open()
+        val parameters  = camera.parameters;
+        val optimalSize = getOptimalSize(parameters.supportedPictureSizes, 600, 400);
+        optimalSize?.let {
+            parameters.setPictureSize(it.width, it.height)
+            camera.parameters = parameters
+        }
+        camera.release()
         // open camera
         startForResult.launch(takePictureIntent)
+    }
+
+
+    private fun getOptimalSize(sizes: List<android.hardware.Camera.Size>?, targetWidth: Int, targetHeight: Int): android.hardware.Camera.Size? {
+        val aspectTolerance = 0.1
+        val targetAspectRation = targetWidth.toDouble() / targetHeight.toDouble()
+
+        var optimalSize: android.hardware.Camera.Size? = null;
+        var minDiff = Double.MAX_VALUE
+
+        sizes?.forEach { size ->
+            val ratio = size.width.toDouble() / size.height;
+            if(abs(ratio - targetAspectRation) > aspectTolerance) return@forEach
+
+            val diff = abs(size.width - targetWidth) + abs(size.height - targetHeight)
+            if(diff < minDiff || optimalSize == null){
+                optimalSize = size
+                minDiff = diff.toDouble()
+            }
+        }
+
+        return optimalSize
     }
 }
